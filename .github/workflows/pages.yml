@@ -1,0 +1,55 @@
+# Публикация демо на GitHub Pages: интерфейс + демо-сервер в браузере, без бэкенда.
+# В настройках репозитория: Settings → Pages → Source: GitHub Actions.
+name: Демо на GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Проверки
+        run: |
+          pnpm --filter @hydrocrm/shared build
+          pnpm lint
+          pnpm --filter @hydrocrm/shared test
+          pnpm --filter @hydrocrm/web typecheck
+      - name: Сборка демо
+        env:
+          VITE_AUTHOR_NAME: ${{ vars.AUTHOR_NAME }}
+          VITE_AUTHOR_URL: ${{ vars.AUTHOR_URL }}
+        run: node scripts/build-demo.mjs "/${{ github.event.repository.name }}/" "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

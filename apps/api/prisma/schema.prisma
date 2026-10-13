@@ -1,0 +1,653 @@
+// Схема БД ГидроCRM. Описание сущностей — docs/03-модель-данных.md.
+// companyId есть у корневых сущностей и подставляется автоматически (src/prisma/tenant.extension.ts).
+// Дочерние записи (контакты, позиции сметы, комментарии…) изолированы через родителя.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ClientType {
+  person
+  ip
+  company
+  dealer
+}
+
+enum LeadStatus {
+  new
+  in_progress
+  converted
+  rejected
+  spam
+}
+
+enum LeadChannel {
+  phone
+  email
+  site
+  vk
+  avito
+  telegram
+  manual
+  other
+}
+
+enum OrderType {
+  repair_workshop
+  repair_field
+  assembly_custom
+  assembly_standard
+}
+
+enum StageKind {
+  open
+  won
+  lost
+}
+
+enum Priority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum OrderItemKind {
+  work
+  part
+  service
+}
+
+enum OrderItemStatus {
+  proposed
+  approved
+  declined
+}
+
+enum ApprovalMethod {
+  phone
+  email
+  telegram
+  signed_doc
+  status_page
+}
+
+enum VisitStatus {
+  planned
+  on_the_way
+  on_site
+  done
+  cancelled
+}
+
+enum VisitResult {
+  fixed
+  need_workshop
+  need_revisit
+}
+
+enum TaskStatus {
+  open
+  done
+  cancelled
+}
+
+enum CommentKind {
+  comment
+  system
+}
+
+enum ChatChannelType {
+  general
+  group
+  direct
+}
+
+model Company {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  legalName String?
+  inn       String?
+  phone     String?
+  email     String?
+  address   String?
+  timezone  String   @default("Europe/Moscow")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  roles Role[]
+}
+
+model User {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  companyId          String    @db.Uuid
+  email              String    @unique
+  passwordHash       String
+  fullName           String
+  phone              String?
+  position           String?
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  failedLogins       Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+
+  @@index([companyId])
+}
+
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  companyId   String   @db.Uuid
+  code        String
+  name        String
+  permissions String[]
+
+  company Company    @relation(fields: [companyId], references: [id])
+  users   UserRole[]
+
+  @@unique([companyId, code])
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  userId     String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  changes    Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
+}
+
+/// Счётчики человекочитаемых номеров: З-2026-0042, ЗЯ-2026-0101.
+model Counter {
+  companyId String @db.Uuid
+  key       String
+  year      Int
+  last      Int    @default(0)
+
+  @@id([companyId, key, year])
+}
+
+model LeadSource {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  companyId String       @db.Uuid
+  name      String
+  channel   LeadChannel?
+  isActive  Boolean      @default(true)
+
+  leads   Lead[]
+  clients Client[]
+}
+
+model RejectReason {
+  id        String @id @default(uuid(7)) @db.Uuid
+  companyId String @db.Uuid
+  name      String
+
+  leads  Lead[]
+  orders Order[]
+}
+
+model Client {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  companyId        String     @db.Uuid
+  type             ClientType
+  name             String
+  legalName        String?
+  inn              String?
+  kpp              String?
+  ogrn             String?
+  legalAddress     String?
+  phone            String?
+  email            String?
+  address          String?
+  sourceId         String?    @db.Uuid
+  managerId        String?    @db.Uuid
+  paymentTermsDays Int        @default(0)
+  pdConsentAt      DateTime?
+  tags             String[]
+  note             String?
+  archivedAt       DateTime?
+  deletedAt        DateTime?
+  createdById      String?    @db.Uuid
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  version          Int        @default(1)
+
+  source    LeadSource? @relation(fields: [sourceId], references: [id])
+  contacts  Contact[]
+  equipment Equipment[]
+  leads     Lead[]
+  orders    Order[]
+  tasks     Task[]
+
+  @@index([companyId, name])
+  @@index([companyId, phone])
+  @@index([companyId, inn])
+}
+
+model Contact {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  clientId  String  @db.Uuid
+  fullName  String
+  position  String?
+  phone     String?
+  email     String?
+  isPrimary Boolean @default(false)
+  note      String?
+
+  client Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([clientId])
+  @@index([phone])
+}
+
+model Equipment {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  clientId     String   @db.Uuid
+  name         String
+  manufacturer String?
+  model        String?
+  serialNumber String?
+  year         Int?
+  pressureBar  Decimal? @db.Decimal(10, 2)
+  flowLpm      Decimal? @db.Decimal(10, 2)
+  tankVolumeL  Decimal? @db.Decimal(10, 2)
+  motorPowerKw Decimal? @db.Decimal(10, 2)
+  voltage      String?
+  location     String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  client Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([clientId])
+  @@index([serialNumber])
+}
+
+model Lead {
+  id               String      @id @default(uuid(7)) @db.Uuid
+  companyId        String      @db.Uuid
+  number           String
+  status           LeadStatus  @default(new)
+  channel          LeadChannel
+  sourceId         String?     @db.Uuid
+  clientId         String?     @db.Uuid
+  contactName      String?
+  phone            String?
+  email            String?
+  description      String
+  assigneeId       String?     @db.Uuid
+  responseDueAt    DateTime
+  firstResponseAt  DateTime?
+  orderId          String?     @unique @db.Uuid
+  rejectReasonId   String?     @db.Uuid
+  rejectComment    String?
+  isStatusQuestion  Boolean     @default(false)
+  overdueNotifiedAt DateTime?
+  createdById      String?     @db.Uuid
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  source       LeadSource?   @relation(fields: [sourceId], references: [id])
+  client       Client?       @relation(fields: [clientId], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+  rejectReason RejectReason? @relation(fields: [rejectReasonId], references: [id])
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+}
+
+model Pipeline {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  companyId String    @db.Uuid
+  orderType OrderType
+  name      String
+
+  stages Stage[]
+
+  @@unique([companyId, orderType])
+}
+
+model Stage {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  pipelineId       String    @db.Uuid
+  code             String
+  name             String
+  clientName       String?
+  sort             Int
+  kind             StageKind @default(open)
+  isProduction     Boolean   @default(false)
+  normHours        Int?
+  clientNotify     Boolean   @default(false)
+  hiddenFromClient Boolean   @default(false)
+  color            String?
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@unique([pipelineId, code])
+}
+
+model Order {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  companyId       String    @db.Uuid
+  number          String
+  type            OrderType
+  stageId         String    @db.Uuid
+  stageChangedAt  DateTime  @default(now())
+  clientId        String    @db.Uuid
+  contactId       String?   @db.Uuid
+  equipmentId     String?   @db.Uuid
+  title           String
+  complaint       String?
+  managerId       String?   @db.Uuid
+  priority        Priority  @default(normal)
+  plannedFinishAt DateTime?
+  finishedAt      DateTime?
+  lostReasonId    String?   @db.Uuid
+  lostComment     String?
+  discountPercent Decimal   @default(0) @db.Decimal(5, 2)
+  totalKop        BigInt    @default(0)
+  costKop         BigInt    @default(0)
+  statusToken     String    @unique
+  isWarrantyCase  Boolean   @default(false)
+  parentOrderId   String?   @db.Uuid
+  stuckNotifiedAt DateTime?
+  createdById     String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  version         Int       @default(1)
+
+  stage        Stage               @relation(fields: [stageId], references: [id])
+  client       Client              @relation(fields: [clientId], references: [id])
+  contact      Contact?            @relation(fields: [contactId], references: [id])
+  equipment    Equipment?          @relation(fields: [equipmentId], references: [id])
+  lostReason   RejectReason?       @relation(fields: [lostReasonId], references: [id])
+  parentOrder  Order?              @relation("OrderParent", fields: [parentOrderId], references: [id])
+  childOrders  Order[]             @relation("OrderParent")
+  lead         Lead?
+  assignees    OrderAssignee[]
+  stageHistory OrderStageHistory[]
+  items        OrderItem[]
+  approvals    OrderApproval[]
+  visits       Visit[]
+  comments     Comment[]
+  tasks        Task[]
+  files        File[]
+  reads        OrderRead[]
+
+  @@unique([companyId, number])
+  @@index([companyId, type, stageId])
+  @@index([companyId, clientId])
+}
+
+model OrderAssignee {
+  orderId String  @db.Uuid
+  userId  String  @db.Uuid
+  isLead  Boolean @default(false)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, userId])
+  @@index([userId])
+}
+
+model OrderStageHistory {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  orderId       String   @db.Uuid
+  fromStageId   String?  @db.Uuid
+  toStageId     String   @db.Uuid
+  changedById   String?  @db.Uuid
+  changedAt     DateTime @default(now())
+  comment       String?
+  durationHours Int?
+  overridden    Boolean  @default(false)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, changedAt])
+}
+
+model OrderItem {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  orderId         String          @db.Uuid
+  kind            OrderItemKind
+  name            String
+  quantity        Decimal         @db.Decimal(12, 3)
+  unit            String          @default("шт")
+  priceKop        BigInt          @default(0)
+  costKop         BigInt          @default(0)
+  discountPercent Decimal         @default(0) @db.Decimal(5, 2)
+  status          OrderItemStatus @default(approved)
+  isExtra         Boolean         @default(false)
+  sort            Int             @default(0)
+  proposedById    String?         @db.Uuid
+  createdAt       DateTime        @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model OrderApproval {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  orderId        String         @db.Uuid
+  version        Int
+  totalKop       BigInt
+  approvedAt     DateTime       @default(now())
+  method         ApprovalMethod
+  approvedByName String
+  createdById    String?        @db.Uuid
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+/// Отметка «прочитано» ленты заказа пользователем — для счётчика непрочитанных.
+model OrderRead {
+  orderId    String   @db.Uuid
+  userId     String   @db.Uuid
+  lastReadAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, userId])
+}
+
+model Visit {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  companyId      String       @db.Uuid
+  orderId        String       @db.Uuid
+  status         VisitStatus  @default(planned)
+  plannedStartAt DateTime
+  plannedEndAt   DateTime
+  address        String
+  contactName    String?
+  contactPhone   String?
+  departedAt     DateTime?
+  arrivedAt      DateTime?
+  finishedAt     DateTime?
+  travelKm       Decimal?     @db.Decimal(8, 1)
+  result         VisitResult?
+  report         String?
+  createdById    String?      @db.Uuid
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  assignees VisitAssignee[]
+  files     File[]
+
+  @@index([companyId, plannedStartAt])
+}
+
+model VisitAssignee {
+  visitId String @db.Uuid
+  userId  String @db.Uuid
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@id([visitId, userId])
+  @@index([userId])
+}
+
+model Comment {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  orderId   String      @db.Uuid
+  authorId  String?     @db.Uuid
+  kind      CommentKind @default(comment)
+  text      String
+  mentions  String[]
+  payload   Json?
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime    @default(now())
+
+  order Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  files File[]
+
+  @@index([orderId, createdAt])
+}
+
+model File {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  companyId    String   @db.Uuid
+  storageKey   String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?  @db.Uuid
+  orderId      String?  @db.Uuid
+  commentId    String?  @db.Uuid
+  visitId      String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  order   Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  visit   Visit?   @relation(fields: [visitId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model Task {
+  id            String     @id @default(uuid(7)) @db.Uuid
+  companyId     String     @db.Uuid
+  title         String
+  description   String?
+  assigneeId    String     @db.Uuid
+  authorId      String?    @db.Uuid
+  dueAt         DateTime?
+  status        TaskStatus @default(open)
+  completedAt   DateTime?
+  resultComment String?
+  priority      Priority   @default(normal)
+  orderId       String?    @db.Uuid
+  clientId      String?    @db.Uuid
+  leadId        String?    @db.Uuid
+  isAuto            Boolean    @default(false)
+  overdueNotifiedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  order  Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, assigneeId, status])
+}
+
+model Notification {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  companyId String    @db.Uuid
+  userId    String    @db.Uuid
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([companyId, userId, readAt])
+}
+
+model ChatChannel {
+  id        String          @id @default(uuid(7)) @db.Uuid
+  companyId String          @db.Uuid
+  type      ChatChannelType
+  name      String?
+  createdAt DateTime        @default(now())
+
+  members  ChatMember[]
+  messages ChatMessage[]
+}
+
+model ChatMember {
+  channelId  String   @db.Uuid
+  userId     String   @db.Uuid
+  lastReadAt DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  channelId String    @db.Uuid
+  authorId  String    @db.Uuid
+  text      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+}

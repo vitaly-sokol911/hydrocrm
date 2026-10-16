@@ -238,7 +238,7 @@ route(
   true,
 );
 route('POST', '/auth/login', () => {
-  throw new HttpError(401, 'UNAUTHORIZED', 'В демо вход только по ролям');
+  throw new HttpError(401, 'UNAUTHORIZED', 'Вход возможен только по ролям');
 }, true);
 route(
   'POST',
@@ -269,7 +269,7 @@ route('GET', '/auth/me', (c) => ({
   demoMode: true,
 }));
 route('POST', '/auth/change-password', () => {
-  throw demoOnly('В демо пароли не меняются');
+  throw demoOnly('Пароли здесь не меняются');
 });
 
 // --- Пользователи и справочники ---
@@ -279,10 +279,10 @@ route('GET', '/users', (c) =>
     .sort((a, b) => a.fullName.localeCompare(b.fullName)),
 );
 route('POST', '/users', () => {
-  throw demoOnly('В демо нельзя создавать пользователей');
+  throw demoOnly('Пользователей здесь создавать нельзя');
 });
 route('PATCH', '/users/:id', () => {
-  throw demoOnly('В демо нельзя менять сотрудников');
+  throw demoOnly('Сотрудников здесь менять нельзя');
 });
 route('GET', '/dictionaries', (c) => ({
   leadSources: c!.db.leadSources.filter((s) => s.isActive).sort((a, b) => a.name.localeCompare(b.name)),
@@ -1087,7 +1087,7 @@ const ALLOWED = /^(image\/(jpeg|png|webp|gif)|application\/pdf|text\/plain)$/;
 route('POST', '/files', async (c, _p, q, body: FormData) => {
   const file = body instanceof FormData ? (body.get('file') as File | null) : null;
   if (!file) throw bad('Файл не передан');
-  if (file.size > 2 * 1024 * 1024) throw bad('В демо можно загрузить файл до 2 МБ');
+  if (file.size > 2 * 1024 * 1024) throw bad('Можно загрузить файл до 2 МБ');
   if (!ALLOWED.test(file.type)) throw bad('Такой тип файла загрузить нельзя');
   const orderId = q.get('orderId');
   if (orderId) orderOr404(c!, orderId);
@@ -1533,7 +1533,7 @@ export async function demoFetch(input: string, init: RequestInit = {}): Promise<
         });
       }
       console.error('[demo]', e);
-      return json(500, { error: { code: 'INTERNAL', message: 'Внутренняя ошибка демо' } });
+      return json(500, { error: { code: 'INTERNAL', message: 'Внутренняя ошибка' } });
     }
   }
   return json(404, { error: { code: 'NOT_FOUND', message: 'Не найдено' } });

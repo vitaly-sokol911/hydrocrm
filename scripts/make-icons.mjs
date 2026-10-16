@@ -51,9 +51,7 @@ function png(w, h, pixel) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 
-const STEEL = [14, 31, 54];
 const BLUE = [31, 95, 191];
-const OIL = [232, 163, 23];
 const WHITE = [255, 255, 255];
 
 /** Капля: круг снизу + сужение вверх. Координаты нормированы к центру (cx, cy) и размеру s. */
@@ -79,34 +77,8 @@ function icon(size, maskable) {
   });
 }
 
-// Превью 1200×630: стальной фон с бликами, капля и гидролиния с «маслом» до 5-го этапа из 7.
-function og() {
-  const W = 1200, H = 630;
-  return png(W, H, (u, v) => {
-    const x = u * W, y = v * H;
-    const glow1 = Math.exp(-(((x - 150) ** 2 + (y - 80) ** 2) / 2 / 260 ** 2)) * 0.55;
-    const glow2 = Math.exp(-(((x - 1100) ** 2 + (y - 520) ** 2) / 2 / 220 ** 2)) * 0.22;
-    let c = STEEL.map((s, i) => s + (BLUE[i] - s) * glow1 + (OIL[i] - s) * glow2);
-    // капля слева сверху
-    const dx = (x - 140) / 120, dy = (y - 150) / 120;
-    if (inDrop(dx * 0.5 + 0.5, dy * 0.5 + 0.5, 0.5, 0.5, 0.5)) c = WHITE;
-    // гидролиния
-    const lineY = 430, x0 = 140, x1 = 1060, stages = 7, current = 4;
-    const fillX = x0 + ((x1 - x0) * current) / (stages - 1);
-    if (Math.abs(y - lineY) < 9 && x > x0 && x < x1) c = x < fillX ? OIL : [52, 68, 92];
-    for (let i = 0; i < stages; i++) {
-      const nx = x0 + ((x1 - x0) * i) / (stages - 1);
-      const d = Math.hypot(x - nx, y - lineY);
-      if (d < 22) c = i < current ? OIL : i === current ? WHITE : [52, 68, 92];
-      if (d < 13 && i >= current) c = STEEL;
-      if (i === current && d < 8) c = BLUE;
-    }
-    return [...c.map(Math.round), 1];
-  });
-}
-
 writeFileSync(resolve(OUT, 'icon-192.png'), icon(192, false));
 writeFileSync(resolve(OUT, 'icon-512.png'), icon(512, false));
 writeFileSync(resolve(OUT, 'icon-maskable-512.png'), icon(512, true));
-writeFileSync(resolve(OUT, 'og-image.png'), og());
-console.log('Иконки и превью сохранены в', OUT);
+// og-image.png (с заголовком) рисуется отдельно — здесь нет шрифтов, поэтому скрипт его не создаёт
+console.log('Иконки сохранены в', OUT);

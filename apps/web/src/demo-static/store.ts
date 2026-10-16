@@ -58,7 +58,7 @@ const listeners = new Set<(event: string, data: any) => void>();
 
 async function fresh(): Promise<DemoDb> {
   const res = await fetch(`${import.meta.env.BASE_URL}demo/snapshot.json`);
-  if (!res.ok) throw new Error('Не удалось загрузить демо-данные');
+  if (!res.ok) throw new Error('Не удалось загрузить данные');
   const snap = (await res.json()) as DemoDb;
   // Сдвигаем так, чтобы «сейчас» снимка совпало с текущим моментом.
   const offset = Date.now() - Date.parse(snap.exportedAt);

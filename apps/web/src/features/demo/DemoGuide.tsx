@@ -147,7 +147,7 @@ export function DemoGuide() {
   const progress = done.filter((d) => STEPS.some((s) => s.id === d)).length;
   return (
     <>
-      <button className="demo-fab" onClick={() => setOpen(true)} aria-label="Что попробовать в демо">
+      <button className="demo-fab" onClick={() => setOpen(true)} aria-label="Что попробовать">
         <span className="gauge" style={{ '--p': progress / STEPS.length } as CSSProperties}>
           <span>{progress}</span>
         </span>

@@ -20,7 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AutoComplete, Badge, Button, Drawer, Dropdown, Grid, Input, Layout, List, Menu, Popover, Segmented, Space, Typography } from 'antd';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { api, DEMO_RESET_NOTE } from '../shared/api';
+import { api } from '../shared/api';
 import { useAuth } from '../shared/auth';
 import { fmtSmart } from '../shared/format';
 import { useAction } from '../shared/hooks';
@@ -278,7 +278,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const menu = useMenu();
   const location = useLocation();
   const navigate = useNavigate();
-  const { demoMode, me } = useAuth();
+  const { me } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const selected = menu.find((m) => m.key !== '/' && location.pathname.startsWith(m.key))?.key ?? (location.pathname === '/' ? '/' : '');
@@ -323,11 +323,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {menuEl}
         </Drawer>
         <Layout>
-          {demoMode && (
-            <div className="demo-banner">
-              <b>Данные в системе вымышленные</b> — нажимать можно всё. {DEMO_RESET_NOTE}
-            </div>
-          )}
           <Header style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid var(--line)' }}>
             {mobile && <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawer(true)} aria-label="Меню" />}
             <div style={{ flex: 1, minWidth: 0 }}>{mobile ? null : <GlobalSearch />}</div>

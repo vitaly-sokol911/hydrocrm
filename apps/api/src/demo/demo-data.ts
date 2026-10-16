@@ -191,7 +191,7 @@ export async function seedDemo(db: Db) {
   const now = Date.now();
 
   const { company, roles, admin } = await seedCompany(db, {
-    name: 'ГидроПрофи (демо)',
+    name: 'ГидроПрофи',
     legalName: 'ООО «ГидроПрофи»',
     inn: makeInn(10),
     phone: '+73430000000',

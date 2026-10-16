@@ -86,9 +86,9 @@ export function LoginPage() {
         <div className="login-panel login-enter">
           {demoMode ? (
             <>
-              <div className="eyebrow">Демо-доступ</div>
+              <div className="eyebrow">Вход</div>
               <Typography.Title level={3} style={{ margin: '6px 0 8px' }}>
-                Выберите, под кем войти
+                Выберите роль
               </Typography.Title>
               <Typography.Paragraph type="secondary" style={{ marginBottom: 18 }}>
                 Компания и данные вымышленные — нажимать можно всё. {DEMO_RESET_NOTE}

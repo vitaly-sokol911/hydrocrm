@@ -325,7 +325,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <Layout>
           {demoMode && (
             <div className="demo-banner">
-              <b>Демо-доступ:</b> компания и данные вымышленные — нажимать можно всё. {DEMO_RESET_NOTE}
+              <b>Данные в системе вымышленные</b> — нажимать можно всё. {DEMO_RESET_NOTE}
             </div>
           )}
           <Header style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid var(--line)' }}>

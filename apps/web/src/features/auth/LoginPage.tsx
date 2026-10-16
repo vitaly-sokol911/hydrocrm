@@ -2,7 +2,7 @@ import { DashboardOutlined, LockOutlined, MailOutlined, TeamOutlined, ToolOutlin
 import { loginSchema, type RoleCode } from '@hydrocrm/shared';
 import { Alert, Button, Form, Input, Typography } from 'antd';
 import { useState } from 'react';
-import { ApiError, DEMO_RESET_NOTE } from '../../shared/api';
+import { ApiError } from '../../shared/api';
 import { useAuth } from '../../shared/auth';
 import { AuthorLink } from '../../shared/author';
 import { HydraulicLine } from '../../shared/HydraulicLine';
@@ -91,7 +91,7 @@ export function LoginPage() {
                 Выберите роль
               </Typography.Title>
               <Typography.Paragraph type="secondary" style={{ marginBottom: 18 }}>
-                Компания и данные вымышленные — нажимать можно всё. {DEMO_RESET_NOTE}
+                Данные вымышленные — нажимайте что угодно, изменения видны только вам.
               </Typography.Paragraph>
               <div className="role-list">
                 {ROLES.map((r) => (
